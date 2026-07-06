@@ -50,6 +50,7 @@
         #btn-lt { top: 30px; left: 50px; } #btn-lb { top: 30px; left: 140px; }
         #btn-rt { top: 30px; right: 50px; } #btn-rb { top: 30px; right: 140px; }
         #btn-select { top: 30px; left: calc(50% - 110px); font-size: 24px; }
+        #btn-guide { top: 20px; left: calc(50% - 35px); width: 70px; height: 70px; font-size: 28px; }
         #btn-start { top: 30px; left: calc(50% + 50px); font-size: 24px; }
         #btn-y { bottom: 350px; right: 130px; } #btn-a { bottom: 210px; right: 130px; }
         #btn-x { bottom: 280px; right: 200px; } #btn-b { bottom: 280px; right: 60px; }
@@ -77,6 +78,7 @@
         <div id="btn-rt" class="vbtn btn-round">RT</div>
         <div id="btn-rb" class="vbtn btn-round">RB</div>
         <div id="btn-select" class="vbtn btn-round">◀</div>
+        <div id="btn-guide" class="vbtn btn-round">🎮</div>
         <div id="btn-start" class="vbtn btn-round">▶</div>
         <div id="btn-a" class="vbtn btn-round">A</div>
         <div id="btn-b" class="vbtn btn-round">B</div>
@@ -158,7 +160,7 @@
             overlay.addEventListener(evt, blockEvent, { passive: false });
         });
 
-        const btnMap = { 'btn-a': 1, 'btn-b': 0, 'btn-x': 3, 'btn-y': 2, 'btn-lb': 4, 'btn-rb': 5, 'btn-lt': 6, 'btn-rt': 7, 'btn-select': 8, 'btn-start': 9, 'btn-l3': 10, 'btn-r3': 11, 'btn-up': 12, 'btn-down': 13, 'btn-left': 14, 'btn-right': 15 };
+        const btnMap = { 'btn-a': 1, 'btn-b': 0, 'btn-x': 3, 'btn-y': 2, 'btn-lb': 4, 'btn-rb': 5, 'btn-lt': 6, 'btn-rt': 7, 'btn-select': 8, 'btn-start': 9, 'btn-l3': 10, 'btn-r3': 11, 'btn-up': 12, 'btn-down': 13, 'btn-left': 14, 'btn-right': 15, 'btn-guide': 16};
         function setButton(idx, pressed) {
             window.vGamepad.buttons[idx].pressed = pressed;
             window.vGamepad.buttons[idx].touched = pressed;
@@ -266,7 +268,7 @@
         setupJoystick('joy-left', 'knob-left', 0, 1);
         setupJoystick('joy-right', 'knob-right', 2, 3);
     </script>
-    
+
     <!-- Modal -->
     <div id="modal-overlay" class="modal-background modal-disabled">
         <!-- Modal Content -->
