@@ -6,14 +6,22 @@ import { InfoEvent, Stream } from "./stream/index.js"
 import { getModalBackground, Modal, showMessage, showModal } from "./component/modal/index.js";
 import { getSidebarRoot, setSidebar, setSidebarExtended, setSidebarStyle, Sidebar } from "./component/sidebar/index.js";
 import { defaultStreamInputConfig, MouseMode, ScreenKeyboardSetVisibleEvent, StreamInputConfig } from "./stream/input.js";
-import { getLocalStreamSettings, Settings, TransportType} from "./component/settings_menu.js";
+import { getLocalStreamSettings, Settings, TransportType } from "./component/settings_menu.js";
 import { SelectComponent } from "./component/input.js";
 import { DetailedRole, LogMessageType, StreamCapabilities, StreamKeys, StreamPermissions } from "./api_bindings.js";
 import { KeyboardModeEvent, KeyboardModeWillChangeEvent, ScreenKeyboard, TextEvent } from "./screen_keyboard.js";
 import { FormModal } from "./component/modal/form.js";
 import { streamStatsToText } from "./stream/stats.js";
-import { adoptRoleDefaultLanguage, getCurrentLanguage, getTranslations, Language, normalizeLanguage} from "./i18n.js";
+import { adoptRoleDefaultLanguage, getCurrentLanguage, getTranslations, Language, normalizeLanguage } from "./i18n.js";
 import { requestKeyboardLock } from "./iframe.js";
+
+declare global {
+    interface Window {
+        vGamepad?: any;
+        toggleVirtualGamepad?: (btn: HTMLButtonElement) => void;
+        unplugVirtualGamepad?: (btn: HTMLButtonElement) => void;
+    }
+}
 
 let I = getTranslations(getCurrentLanguage())
 
@@ -1003,6 +1011,8 @@ class AutoFullscreenModal implements Component, Modal<void> {
 class ViewerSidebar implements Component, Sidebar {
     private app: ViewerApp
 
+    private gamepadButton = document.createElement("button");
+
     private div = document.createElement("div")
 
     private buttonDiv = document.createElement("div")
@@ -1030,6 +1040,57 @@ class ViewerSidebar implements Component, Sidebar {
 
         this.buttonDiv.classList.add("sidebar-stream-buttons")
         this.div.appendChild(this.buttonDiv)
+
+        // Configure divs
+        this.div.classList.add("sidebar-stream")
+
+        this.buttonDiv.classList.add("sidebar-stream-buttons")
+        this.div.appendChild(this.buttonDiv)
+
+        // --- VIRTUAL GAMEPAD BUTTON (First button) ---
+        this.gamepadButton = document.createElement("button");
+        this.gamepadButton.innerText = "Gamepad";
+        this.gamepadButton.id = "vpad-btn";
+        this.gamepadButton.title = "Virtual Gamepad (Long press to unplug)";
+
+        let pressStartTime = 0;
+        const LONG_PRESS_DURATION = 550;
+
+        const handlePointerDown = (e: PointerEvent) => {
+            if (e.button !== undefined && e.button !== 0) return;
+            pressStartTime = Date.now();
+            this.gamepadButton.style.transition = "background-color 0.15s";
+            this.gamepadButton.style.backgroundColor = "rgba(255, 255, 255, 0.25)";
+        };
+
+        const handlePointerUp = (e: PointerEvent) => {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+
+            const duration = Date.now() - pressStartTime;
+            this.gamepadButton.style.backgroundColor = "";
+
+            if (duration >= LONG_PRESS_DURATION) {
+                window.unplugVirtualGamepad?.(this.gamepadButton);
+            } else {
+                window.toggleVirtualGamepad?.(this.gamepadButton);
+            }
+        };
+
+        this.gamepadButton.addEventListener("pointerdown", handlePointerDown, { passive: false });
+        this.gamepadButton.addEventListener("pointerup", handlePointerUp, { passive: false });
+        this.gamepadButton.addEventListener("pointerleave", () => {
+            this.gamepadButton.style.backgroundColor = "";
+        });
+        this.gamepadButton.addEventListener("pointercancel", () => {
+            this.gamepadButton.style.backgroundColor = "";
+        });
+
+        this.gamepadButton.addEventListener("contextmenu", e => e.preventDefault());
+        this.gamepadButton.addEventListener("click", e => e.preventDefault());
+
+        // Insert as the very first button
+        this.buttonDiv.insertBefore(this.gamepadButton, this.buttonDiv.firstChild);
 
         // Send keycode
         this.sendKeycodeButton.innerText = I.stream.sendKeycode
