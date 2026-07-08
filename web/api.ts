@@ -197,7 +197,9 @@ export async function fetchApi<Initial, Other>(api: Api, endpoint: string, metho
 export async function fetchApi(api: Api, endpoint: string, method: string = GET, init?: { response?: "json" | "ignore" | "jsonStreaming" } & ApiFetchInit, timeout: number = API_TIMEOUT) {
     const [url, request] = buildRequest(api, endpoint, method, init)
 
-    request.signal = AbortSignal.timeout(timeout)
+    if (!init?.noTimeout) {
+        request.signal = AbortSignal.timeout(timeout)
+    }
 
     let response
     try {
