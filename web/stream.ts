@@ -1047,6 +1047,17 @@ class ViewerSidebar implements Component, Sidebar {
         this.buttonDiv.classList.add("sidebar-stream-buttons")
         this.div.appendChild(this.buttonDiv)
 
+        // Add these two buttons to your buttonDiv
+        const switchLeftButton = document.createElement("button");
+        switchLeftButton.innerText = "Prev Monitor";
+        switchLeftButton.addEventListener("click", () => this.sendMonitorShortcut(0x70)); // VK_F1
+        this.buttonDiv.appendChild(switchLeftButton);
+
+        const switchRightButton = document.createElement("button");
+        switchRightButton.innerText = "Next Monitor";
+        switchRightButton.addEventListener("click", () => this.sendMonitorShortcut(0x71)); // VK_F2
+        this.buttonDiv.appendChild(switchRightButton);
+
         // --- VIRTUAL GAMEPAD BUTTON (First button) ---
         this.gamepadButton = document.createElement("button");
         this.gamepadButton.innerText = "Gamepad";
@@ -1090,7 +1101,7 @@ class ViewerSidebar implements Component, Sidebar {
         this.gamepadButton.addEventListener("click", e => e.preventDefault());
 
         // Insert as the very first button
-        this.buttonDiv.insertBefore(this.gamepadButton, this.buttonDiv.firstChild);
+        this.buttonDiv.appendChild(this.gamepadButton);
 
         // Send keycode
         this.sendKeycodeButton.innerText = I.stream.sendKeycode
@@ -1105,6 +1116,38 @@ class ViewerSidebar implements Component, Sidebar {
             this.app.getStream()?.getInput().sendKey(false, key, 0)
         })
         this.buttonDiv.appendChild(this.sendKeycodeButton)
+
+        const clipboardButton = document.createElement("button")
+        clipboardButton.innerText = "Clipboard"
+        // Replace your existing sidebar button handler logic with this:
+        // Replace the previous clipboard button handler logic with this:
+        clipboardButton.addEventListener("click", async () => {
+            setSidebarExtended(false);
+
+            const textToSend = await showModal(new ClipboardModal());
+
+            if (textToSend) {
+                const stream = this.app.getStream()?.getInput();
+                if (!stream) return;
+
+                // Use a conservative chunk size (e.g., 128) to avoid UTF-8 buffer overflow
+                const CHUNK_SIZE = 128;
+
+                for (let i = 0; i < textToSend.length; i += CHUNK_SIZE) {
+                    const chunk = textToSend.slice(i, i + CHUNK_SIZE);
+
+                    // This leverages your original, stable 'sendText'
+                    stream.sendText(chunk);
+
+                    // Wait longer (300ms) to ensure the previous chunk's 
+                    // encoding state has been fully processed by the host
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+
+                console.log("📤 Transmitted via native sendText.");
+            }
+        });
+        this.buttonDiv.appendChild(clipboardButton)
 
         // Pointer Lock
         this.lockMouseButton.innerText = I.stream.lockMouse
@@ -1150,6 +1193,8 @@ class ViewerSidebar implements Component, Sidebar {
             }
         })
         this.buttonDiv.appendChild(this.fullscreenButton)
+
+
 
         // Stats
         this.statsButton.innerText = I.stream.stats
@@ -1249,6 +1294,30 @@ class ViewerSidebar implements Component, Sidebar {
         this.app.setInputConfig(config)
     }
 
+
+    // --- Move Monitors ---
+    // Update your helper to accept a dynamic code
+    private sendMonitorShortcut(vkCode: number) {
+        const input = this.app.getStream()?.getInput();
+        if (!input) return;
+
+        // Use Virtual Key Codes (VK_CONTROL=0x11, VK_MENU=0x12, VK_SHIFT=0x10)
+        // These are standard Windows constants
+        const modifiers = [0x11, 0x12, 0x10];
+
+        // Press Modifiers
+        modifiers.forEach(key => input.sendKey(true, key, 0));
+
+        // Press F-Key (e.g., 0x70 for F1, 0x71 for F2)
+        input.sendKey(true, vkCode, 0);
+        input.sendKey(false, vkCode, 0);
+
+        // Release Modifiers
+        modifiers.forEach(key => input.sendKey(false, key, 0));
+    }
+
+
+
     extended(): void {
 
     }
@@ -1316,6 +1385,97 @@ class SendKeycodeModal extends FormModal<number> {
         }
 
         return parseInt(keyString)
+    }
+}
+
+class ClipboardModal implements Modal<string | null> {
+    private root = document.createElement("div")
+    private title = document.createElement("h3")
+    private description = document.createElement("p")
+    private textarea = document.createElement("textarea")
+    private options = document.createElement("div")
+    private sendButton = document.createElement("button")
+    private cancelButton = document.createElement("button")
+
+    constructor(incomingText: string = "") {
+        this.root.classList.add("modal-content")
+
+        // 1. Optimized width for both Portrait and Landscape
+        this.root.style.width = "80vw"      // Slightly narrower to look better
+        this.root.style.maxWidth = "400px"  // Stays compact on desktop
+        this.root.style.boxSizing = "border-box"
+        this.root.style.padding = "20px"
+        this.root.style.margin = "0 auto"   // Centers it perfectly
+
+        this.title.innerText = "Clipboard Sync"
+        this.title.style.marginTop = "0"
+        this.title.style.marginBottom = "10px"
+
+        this.description.innerText = incomingText
+            ? "Text received from Host PC:"
+            : "Paste text below to send it to the Host PC:"
+        this.description.style.fontSize = "14px"
+        this.description.style.opacity = "0.8"
+        this.description.style.marginBottom = "10px"
+
+        // 2. Textarea: Tight and flush with the padding
+        this.textarea.style.width = "100%"
+        this.textarea.style.margin = "0"
+        this.textarea.style.boxSizing = "border-box" // Crucial for no-clip
+        this.textarea.style.display = "block"
+        this.textarea.style.height = "120px"
+        this.textarea.style.marginBottom = "15px"
+        this.textarea.style.resize = "none"
+        this.textarea.style.background = "rgba(0,0,0,0.2)"
+        this.textarea.style.color = "white"
+        this.textarea.style.border = "1px solid rgba(255,255,255,0.2)"
+        this.textarea.style.padding = "10px"
+
+        this.textarea.value = incomingText
+        this.textarea.placeholder = "Paste here..."
+
+        stopPropagationOn(this.textarea)
+
+        // 3. Button Layout
+        this.options.style.display = "flex"
+        this.options.style.justifyContent = "flex-end"
+        this.options.style.gap = "10px"
+
+        this.sendButton.innerText = incomingText ? "Copy & Close" : "Send to Host"
+        this.cancelButton.innerText = "Cancel"
+
+        this.options.appendChild(this.sendButton)
+        this.options.appendChild(this.cancelButton)
+
+        this.root.appendChild(this.title)
+        this.root.appendChild(this.description)
+        this.root.appendChild(this.textarea)
+        this.root.appendChild(this.options)
+    }
+
+    mount(parent: HTMLElement): void {
+        parent.appendChild(this.root)
+        // Auto-focus the text area slightly after mounting so pasting is instant
+        setTimeout(() => this.textarea.focus(), 50)
+    }
+
+    unmount(parent: HTMLElement): void {
+        parent.removeChild(this.root)
+    }
+
+    // Inside your ClipboardModal class
+    onFinish(abort: AbortSignal): Promise<string | null> {
+        return new Promise((resolve) => {
+            this.sendButton.addEventListener("click", () => {
+                // Resolve the text directly from the textarea
+                // This avoids any "writeText" clipboard operations that trigger UTF8 errors
+                resolve(this.textarea.value);
+            }, { once: true, signal: abort });
+
+            this.cancelButton.addEventListener("click", () => {
+                resolve(null);
+            }, { once: true, signal: abort });
+        });
     }
 }
 
